@@ -1,7 +1,7 @@
 # Environment variables
 .env
 
-# Google OAuth credentials
+# Google OAuth / Gmail files
 credentials.json
 credentials.json.json
 token.json
@@ -11,16 +11,14 @@ latest_sender.txt
 
 # Python cache
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
 
 # Virtual environments
 venv/
 env/
 .venv/
 
-# VS Code
+# VS Code settings
 .vscode/
 
 # Logs
@@ -30,15 +28,11 @@ env/
 *.db
 *.sqlite3
 
-# OS files
-.DS_Store
-Thumbs.db
-
-# Build files
+# Build & distribution
 build/
 dist/
 *.egg-info/
 
-# Temporary files
-*.tmp
-*.temp
+# OS files
+.DS_Store
+Thumbs.db
