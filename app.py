@@ -1,42 +1,46 @@
 from flask import Flask, request
 from send_email import send_reply_email
+import os
 
 app = Flask(__name__)
+
+
+@app.route("/")
+def home():
+    return """
+    <h2>✅ Email WhatsApp Agent Running</h2>
+    <p>Webhook is active.</p>
+    """
+
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
 
-    # Receive WhatsApp message
     incoming_msg = request.form.get("Body", "").strip()
 
     print("\n📩 WhatsApp Reply Received")
     print("💬 Message:", incoming_msg)
 
-    # Check reply format
     if incoming_msg.lower().startswith("reply:"):
 
-        # Extract reply text
         reply_text = incoming_msg[6:].strip()
 
         print("✅ Reply Text:", reply_text)
 
-        # Read latest sender email
         try:
 
             with open("latest_sender.txt", "r") as f:
-
                 sender_email = f.read().strip()
 
             print("📧 Sending email reply to:", sender_email)
 
         except Exception as e:
 
-            print("❌ Failed to read sender email")
+            print("❌ Failed to read latest_sender.txt")
             print(e)
 
-            return "No sender email found"
+            return "No sender email found", 400
 
-        # Send email
         try:
 
             send_reply_email(
@@ -47,23 +51,25 @@ def webhook():
 
             print("✅ Reply email sent successfully")
 
-            return "Reply email sent successfully"
+            return "Reply email sent successfully", 200
 
         except Exception as e:
 
             print("❌ Failed to send email")
             print(e)
 
-            return "Email sending failed"
+            return "Email sending failed", 500
 
-    else:
+    print("⚠ Invalid reply format")
 
-        print("⚠ Invalid reply format")
-
-        return "Use format: reply: your message"
+    return "Use format: reply: your message", 200
 
 
-# Run Flask app
 if __name__ == "__main__":
 
-    app.run(port=5000)
+    port = int(os.environ.get("PORT", 5000))
+
+    app.run(
+        host="0.0.0.0",
+        port=port
+    )
