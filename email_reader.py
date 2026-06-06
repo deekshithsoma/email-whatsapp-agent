@@ -15,47 +15,62 @@ TWILIO_SID = os.getenv("TWILIO_ACCOUNT_SID")
 TWILIO_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 YOUR_WHATSAPP = os.getenv("YOUR_WHATSAPP_NUMBER")
 
-# Validate WhatsApp format
-if not YOUR_WHATSAPP.startswith("whatsapp:"):
-    YOUR_WHATSAPP = "whatsapp:" + YOUR_WHATSAPP
-
-client = Client(TWILIO_SID, TWILIO_TOKEN)
-
 spam_keywords = [
-    "no-reply", "noreply", "newsletter", "promotion",
-    "offer", "sale", "discount", "otp", "verification",
-    "linkedin", "facebook", "instagram", "twitter",
-    "alert", "notification", "updates", "marketing",
+    "no-reply",
+    "noreply",
+    "newsletter",
+    "promotion",
+    "offer",
+    "sale",
+    "discount",
+    "otp",
+    "verification",
+    "linkedin",
+    "facebook",
+    "instagram",
+    "twitter",
+    "alert",
+    "notification",
+    "updates",
+    "marketing",
     "unsubscribe"
 ]
+
+client = Client(TWILIO_SID, TWILIO_TOKEN)
 
 print("🚀 Email → WhatsApp Agent Started")
 
 while True:
 
     try:
+
         print("\n🔄 Checking for new emails...")
 
         mail = imaplib.IMAP4_SSL("imap.gmail.com")
         mail.login(EMAIL, PASSWORD)
+
         mail.select("inbox")
 
         status, messages = mail.search(None, '(UNSEEN)')
+
         email_ids = messages[0].split()
 
         print(f"📨 Unread Emails: {len(email_ids)}")
 
         if not email_ids:
+
             mail.logout()
             time.sleep(30)
             continue
 
         important_emails = []
 
-        # Filter emails
         for e_id in email_ids:
+
             try:
+
                 status, msg_data = mail.fetch(e_id, "(RFC822)")
+
                 raw_email = msg_data[0][1]
 
                 msg = email.message_from_bytes(raw_email)
@@ -63,7 +78,13 @@ while True:
                 sender = str(msg.get("from", "")).lower()
                 subject = str(msg.get("subject", "")).lower()
 
-                ignore = any(word in sender or word in subject for word in spam_keywords)
+                ignore = False
+
+                for word in spam_keywords:
+
+                    if word in sender or word in subject:
+                        ignore = True
+                        break
 
                 if not ignore:
                     important_emails.append(e_id)
@@ -74,6 +95,7 @@ while True:
         important_emails = important_emails[-1:]
 
         if not important_emails:
+
             print("📭 No important emails")
             mail.logout()
             time.sleep(30)
@@ -82,71 +104,106 @@ while True:
         for e_id in important_emails:
 
             try:
+
                 status, msg_data = mail.fetch(e_id, "(RFC822)")
+
                 raw_email = msg_data[0][1]
+
                 msg = email.message_from_bytes(raw_email)
 
                 subject = str(msg.get("subject", "No Subject"))
 
-                sender_name, sender_email = parseaddr(str(msg.get("from", "")))
+                sender_name, sender_email = parseaddr(
+                    str(msg.get("from", ""))
+                )
 
                 body = ""
 
                 if msg.is_multipart():
+
                     for part in msg.walk():
+
                         if part.get_content_type() == "text/plain":
-                            body = part.get_payload(decode=True)
-                            if body:
-                                body = body.decode(errors="ignore")
+
+                            try:
+
+                                body = part.get_payload(
+                                    decode=True
+                                ).decode(errors="ignore")
+
                                 break
+
+                            except:
+                                pass
+
                 else:
-                    body = msg.get_payload(decode=True)
-                    if body:
-                        body = body.decode(errors="ignore")
 
-                body = body.strip() if body else "No message content"
+                    try:
 
-                # IMPORTANT FIX: safe limit for Twilio
-                MAX_LEN = 800
-                if len(body) > MAX_LEN:
-                    body = body[:MAX_LEN] + "\n\n...truncated..."
+                        body = msg.get_payload(
+                            decode=True
+                        ).decode(errors="ignore")
 
-                message_text = f"""
+                    except:
+                        pass
+
+                body = body.strip()
+
+                if not body:
+                    body = "No message content"
+
+                if len(body) > 1200:
+
+                    body = body[:1200]
+                    body += "\n\n...Message truncated..."
+
+                with open(
+                    "latest_sender.txt",
+                    "w",
+                    encoding="utf-8"
+                ) as f:
+
+                    f.write(sender_email + "\n")
+                    f.write(subject + "\n")
+
+                whatsapp_message = f"""
 📩 IMPORTANT EMAIL
 
-👤 From: {sender_email}
-📝 Subject: {subject}
+👤 From:
+{sender_email}
+
+📝 Subject:
+{subject}
 
 💬 Message:
 {body}
 
 -----------------------
+
 Reply using:
+
 reply: your message
 """
 
-                print("📤 Sending to WhatsApp...")
-
                 message = client.messages.create(
                     from_="whatsapp:+14155238886",
-                    body=message_text,
+                    body=whatsapp_message,
                     to=YOUR_WHATSAPP
                 )
 
                 print("✅ Sent to WhatsApp")
                 print("SID:", message.sid)
 
-                # mark email as seen (prevents duplicates)
-                mail.store(e_id, '+FLAGS', '\\Seen')
-
             except Exception as e:
-                print("❌ WhatsApp Send Error:")
+
+                print("❌ WhatsApp Send Error")
                 print(e)
 
         mail.logout()
 
     except Exception as e:
-        print("❌ Main Error:")
+
+        print("❌ Main Error")
         print(e)
 
     print("⏳ Waiting 30 seconds...")
